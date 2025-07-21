@@ -1,0 +1,36 @@
+FROM apache/airflow:2.10.5-python3.12
+
+USER root
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+         openjdk-17-jre-headless \
+  && apt-get autoremove -yqq --purge \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PYTHONPATH=/opt/airflow
+
+# 安裝測試依賴
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 複製所有必要的程式碼到容器
+COPY dags/ /opt/airflow/dags/
+COPY plugins/ /opt/airflow/plugins/
+COPY test/ /opt/airflow/test/
+COPY config/ /opt/airflow/config/
+
+WORKDIR /opt/airflow
+
+# 建立必要的目錄
+RUN mkdir -p /opt/airflow/logs /opt/airflow/spark
+
+# 覆蓋原有的 ENTRYPOINT
+ENTRYPOINT []
+
+# # 設置預設命令 (可選)
+# CMD ["pytest", "test/test_stock_market.py", "-v"]

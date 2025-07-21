@@ -1,0 +1,26 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Test Docker Image
+        run: docker build -t airflow-test -f test/Dockerfile.test .
+
+      - name: Run tests in Test Docker Container
+        run: |
+          mkdir -p coverage
+          docker run --name airflow-test-container --rm \
+            -v  ${{ github.workspace }}/coverage:/opt/airflow/coverage \
+            airflow-test \
+            pytest --log-level=INFO test/ -xvv --cov=plugins --cov=dags --cov-report=html:coverage/html
+        

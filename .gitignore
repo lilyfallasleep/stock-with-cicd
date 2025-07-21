@@ -1,0 +1,9 @@
+__pycache__
+logs
+.env
+.ipynb_checkpoints
+README.md
+coverage/
+/minio
+.DS_Store
+plugins/data/
