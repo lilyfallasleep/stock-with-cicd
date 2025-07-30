@@ -11,7 +11,7 @@ RUN apt-get update \
 
 USER airflow
 
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
 ENV PYTHONPATH=/opt/airflow
 
 # 安裝測試依賴
@@ -22,7 +22,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY dags/ /opt/airflow/dags/
 COPY plugins/ /opt/airflow/plugins/
 COPY test/ /opt/airflow/test/
-COPY config/ /opt/airflow/config/
 
 WORKDIR /opt/airflow
 

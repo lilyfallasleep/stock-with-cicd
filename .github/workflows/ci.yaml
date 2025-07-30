@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
@@ -13,14 +13,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and cache
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          tags: myimage:latest
+          cache-from: type=gha # type=gha, type=local
+          cache-to: type=gha,mode=max # type=gha, type=local
+
       - name: Build Test Docker Image
         run: docker build -t airflow-test -f test/Dockerfile.test .
 
       - name: Run tests in Test Docker Container
         run: |
-          mkdir -p coverage
           docker run --name airflow-test-container --rm \
-            -v  ${{ github.workspace }}/coverage:/opt/airflow/coverage \
             airflow-test \
-            pytest --log-level=INFO test/ -xvv --cov=plugins --cov=dags --cov-report=html:coverage/html
-        
+            pytest --log-level=INFO test/ -xvv --cov=plugins --cov=dags 
