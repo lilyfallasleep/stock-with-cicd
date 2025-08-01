@@ -1,0 +1,55 @@
+name: CD
+
+on:
+  # workflow_run:
+  #   workflows: ["CI"]
+  #   types:
+  #     - completed
+  #   branches: [master]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rsync files to EC2
+        uses: burnett01/rsync-deployments@6.0.0
+        with:
+          switches: -avzr 
+          path: ./stock-with-cicd
+          remote_path: /home/ubuntu/
+          remote_host: ${{ secrets.EC2_HOST }}
+          remote_user: ${{ secrets.EC2_USERNAME }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          
+      - name: Setup and run on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/stock-with-cicd
+            # Add user to the Docker group and restart Docker
+            sudo usermod -aG docker ${{ secrets.EC2_USERNAME }} &&
+            sudo systemctl restart docker
+
+            # Create required directories and set permissions
+            mkdir -p ./dags ./logs ./plugins ./config
+            echo -e "AIRFLOW_UID=$(id -u)" > .env
+
+            # Pull Docker images from DockerHub
+            docker compose pull
+            # Build the new images from Dockerfile
+            docker compose build --no-cache
+
+            # Initialize Airflow database and users (airflow-init container run once and stopped after command completes)
+            docker compose up airflow-init
+            # Start all services (Run containers from images), because other services depend on airflow-init successful completion before starting 
+            docker compose up -d
+
+            # Build the stock-app image for Spark processing
+            docker build -t airflow/stock-app ./spark/app/stock_transform
