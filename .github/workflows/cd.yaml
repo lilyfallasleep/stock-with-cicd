@@ -18,7 +18,7 @@ jobs:
       - name: Rsync files to EC2
         uses: burnett01/rsync-deployments@6.0.0
         with:
-          switches: -avzr 
+          switches: -avzr --delete
           path: ./
           remote_path: /home/ubuntu/stock-with-cicd/
           remote_host: ${{ secrets.EC2_HOST }}
