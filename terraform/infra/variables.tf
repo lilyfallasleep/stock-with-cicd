@@ -33,4 +33,5 @@ variable "ssh_private_key" {
 variable "ssh_private_key_path" {
   description = "private key(path) for SSH access to the EC2 instance. Used for local execution."
   type        = string 
+  default     = null
 }
