@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, 'feature/*', 'fix/*' ] # 只要 push commit 到指定 branch (如 master, feature/*, fix/*)，就會觸發 CI
   pull_request:
-    branches: [ master ]
+    branches: [ master ] # 當 feature branch 合併到 master，也會觸發 CI
 
 jobs:
   ci:
@@ -22,8 +22,8 @@ jobs:
           context: .
           push: false
           tags: myimage:latest
-          cache-from: type=gha # type=gha, type=local
-          cache-to: type=gha,mode=max # type=gha, type=local
+          cache-from: type=gha # type=local, src=.buildx-cache
+          cache-to: type=gha   # type=local, mode=max, dest=.buildx-cache
 
       - name: Build Test Docker Image
         run: docker build -t airflow-test -f test/Dockerfile.test .
@@ -33,3 +33,12 @@ jobs:
           docker run --name airflow-test-container --rm \
             airflow-test \
             pytest --log-level=INFO test/ -xvv --cov=plugins --cov=dags 
+
+      - name: Comment BUILD SUCCESS on PR
+        if: github.event_name == 'pull_request' && success()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🎉 **BUILD SUCCESS**
+            All tests passed, CI build successful!
