@@ -123,7 +123,7 @@ resource "aws_instance" "stock_ec2_terraform" {
   }
   
   # Render the user_data script from an external file
-  user_data = templatefile("${path.module}/scripts/docker_install_script.sh", {})  
+  user_data = file("${path.module}/scripts/docker_install_script.sh")
 }
 
 # 3. EBS Volume
