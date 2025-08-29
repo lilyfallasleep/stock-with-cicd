@@ -1,10 +1,13 @@
 name: CI
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
     branches: [ master ]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
 
 jobs:
   ci:
@@ -22,8 +25,8 @@ jobs:
           context: .
           push: false
           tags: myimage:latest
-          cache-from: type=gha # type=gha, type=local
-          cache-to: type=gha,mode=max # type=gha, type=local
+          cache-from: type=gha 
+          cache-to: type=gha
 
       - name: Build Test Docker Image
         run: docker build -t airflow-test -f test/Dockerfile.test .
@@ -33,3 +36,21 @@ jobs:
           docker run --name airflow-test-container --rm \
             airflow-test \
             pytest --log-level=INFO test/ -xvv --cov=plugins --cov=dags 
+
+      - name: Comment BUILD SUCCESS on PR
+        if: github.event_name == 'pull_request' && success()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🎉 **BUILD SUCCESS**
+            All tests passed, CI build successful!
+
+      - name: Comment BUILD FAILURE on PR
+        if: github.event_name == 'pull_request' && failure()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ❌ **BUILD FAILURE**
+            Some tests failed, CI build unsuccessful. Please check the logs for details.
