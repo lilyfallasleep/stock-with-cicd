@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [ master ]
+  push:
+    branches: [ master ]
 
 permissions:
   pull-requests: write
@@ -11,6 +13,9 @@ permissions:
 
 jobs:
   ci:
+    if: |
+      (github.event_name == 'pull_request' && github.event.action != 'closed') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
