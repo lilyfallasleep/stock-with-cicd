@@ -5,7 +5,7 @@ This repository provides a containerized environment for Apache Spark and Apache
 ![Architecture](./doc/architecture.png)
 
 ## Overview
-This setup enables you to:
+This setup enables you to
 - Run Apache Airflow for workflow orchestration
 - Execute Apache Spark jobs from Airflow
 - Process data using Spark within Docker containers
