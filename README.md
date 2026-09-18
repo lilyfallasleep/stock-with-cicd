@@ -1,5 +1,4 @@
-# Table of contents
-- [Table of contents](#table-of-contents)
+# Table 
 - [**Docker based setup of Spark and Airflow**](#docker-based-setup-of-spark-and-airflow)
 	- [Architecture](#architecture)
 	- [Overview](#overview)
@@ -25,20 +24,6 @@
 	- [STEP4. Testing DAGs and Tasks](#step4-testing-dags-and-tasks)
 		- [DAG: stock\_market](#dag-stock_market)
 	- [Updating Code](#updating-code)
-- [目錄](#目錄)
-- [**基於 Docker 搭建 Spark 和 Airflow 環境**](#基於-docker-搭建-spark-和-airflow-環境)
-	- [架構](#架構)
-	- [概述](#概述)
-	- [參考資料](#參考資料)
-	- [前置條件](#前置條件)
-	- [專案結構](#專案結構)
-	- [Dockerfile](#dockerfile-1)
-		- [Airflow Dockerfile](#airflow-dockerfile-1)
-		- [Spark Application Dockerfile](#spark-application-dockerfile-1)
-	- [Docker Compose](#docker-compose-1)
-		- [主要服務](#主要服務)
-			- [Airflow 元件](#airflow-元件)
-			- [資料處理元件](#資料處理元件)
 
 # **Docker based setup of Spark and Airflow**
 This repository provides a containerized environment for Apache Spark and Apache Airflow using Docker, allowing you to quickly set up a development environment for data engineering tasks.
@@ -267,7 +252,7 @@ This allows for faster development cycles by avoiding a full rebuild of the envi
 
 ---
 # 目錄
-- [**基於 Docker 搭建 Spark 和 Airflow 環境**](#基於-docker-搭建-spark-和-airflow-環境)
+- [基於 Docker 搭建 Spark 和 Airflow 環境](#基於-docker-搭建-spark-和-airflow-環境)
 	- [架構](#架構)
 	- [概述](#概述)
 	- [參考資料](#參考資料)
