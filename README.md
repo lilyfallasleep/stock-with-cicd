@@ -1,3 +1,45 @@
+# Table of contents
+- [Table of contents](#table-of-contents)
+- [**Docker based setup of Spark and Airflow**](#docker-based-setup-of-spark-and-airflow)
+	- [Architecture](#architecture)
+	- [Overview](#overview)
+	- [Reference](#reference)
+	- [Prerequisites](#prerequisites)
+	- [Project Structure](#project-structure)
+	- [Dockerfile](#dockerfile)
+		- [Airflow Dockerfile](#airflow-dockerfile)
+		- [Spark Application Dockerfile](#spark-application-dockerfile)
+	- [Docker Compose](#docker-compose)
+		- [Key Services](#key-services)
+			- [Airflow Components](#airflow-components)
+			- [Data Processing Components](#data-processing-components)
+		- [One-Time Initialization Service](#one-time-initialization-service)
+		- [Networks and Communication](#networks-and-communication)
+		- [Volume Mappings](#volume-mappings)
+	- [STEP1. Set Up Instructions](#step1-set-up-instructions)
+	- [STEP2. Connection Setup on Airflow Web UI](#step2-connection-setup-on-airflow-web-ui)
+		- [API](#api)
+		- [MinIO](#minio)
+		- [Postgres](#postgres)
+	- [STEP3. Rebuilding Environment](#step3-rebuilding-environment)
+	- [STEP4. Testing DAGs and Tasks](#step4-testing-dags-and-tasks)
+		- [DAG: stock\_market](#dag-stock_market)
+	- [Updating Code](#updating-code)
+- [目錄](#目錄)
+- [**基於 Docker 搭建 Spark 和 Airflow 環境**](#基於-docker-搭建-spark-和-airflow-環境)
+	- [架構](#架構)
+	- [概述](#概述)
+	- [參考資料](#參考資料)
+	- [前置條件](#前置條件)
+	- [專案結構](#專案結構)
+	- [Dockerfile](#dockerfile-1)
+		- [Airflow Dockerfile](#airflow-dockerfile-1)
+		- [Spark Application Dockerfile](#spark-application-dockerfile-1)
+	- [Docker Compose](#docker-compose-1)
+		- [主要服務](#主要服務)
+			- [Airflow 元件](#airflow-元件)
+			- [資料處理元件](#資料處理元件)
+
 # **Docker based setup of Spark and Airflow**
 This repository provides a containerized environment for Apache Spark and Apache Airflow using Docker, allowing you to quickly set up a development environment for data engineering tasks.
 
@@ -222,3 +264,97 @@ docker compose restart airflow-webserver airflow-scheduler
 ```
 
 This allows for faster development cycles by avoiding a full rebuild of the environment.
+
+---
+# 目錄
+- [**基於 Docker 搭建 Spark 和 Airflow 環境**](#基於-docker-搭建-spark-和-airflow-環境)
+	- [架構](#架構)
+	- [概述](#概述)
+	- [參考資料](#參考資料)
+	- [前置條件](#前置條件)
+	- [專案結構](#專案結構)
+	- [Dockerfile](#dockerfile-1)
+		- [Airflow Dockerfile](#airflow-dockerfile-1)
+		- [Spark Application Dockerfile](#spark-application-dockerfile-1)
+	- [Docker Compose](#docker-compose-1)
+		- [主要服務](#主要服務)
+			- [Airflow 元件](#airflow-元件)
+			- [資料處理元件](#資料處理元件)
+
+
+# **基於 Docker 搭建 Spark 和 Airflow 環境**
+本儲存庫利用 Docker 為 Apache Spark 和 Apache Airflow 提供了一個容器化環境，協助您快速建置資料工程任務的開發環境。
+
+## 架構
+![架構圖](./doc/architecture.png)
+
+## 概述
+透過此配置，您可以：
+- 執行 Apache Airflow 進行工作流程編排
+- 從 Airflow 執行 Apache Spark 任務
+- 在 Docker 容器內，使用 Spark 處理數據
+- 在隔離環境中開發和測試 DAG
+
+## 參考資料
+原始儲存庫：https://github.com/ankit-rawani/spark-airflow-docker/tree/main
+
+## 前置條件
+- 系統中已安裝 Docker
+- 已安裝 Git（用於複製倉庫）
+- 對 Airflow 和 Spark 的基本概念有一定了解
+
+## 專案結構
+- `dags/`: 包含 Airflow DAG 定義
+- `logs/`: Airflow 日誌目錄
+- `plugins/`: Airflow 插件
+- `config/`: 配置檔
+- `spark/app/`: Spark App 程式程式碼
+
+## Dockerfile
+
+本專案主要使用兩個 Dockerfile：
+
+### Airflow Dockerfile
+
+根目錄下的 `Dockerfile` 用於建立包含所有必要依賴的客製化 Airflow Image：
+
+- **基礎 Image**：基於 `apache/airflow:2.10.5-python3.12` 構建
+- **Java 安裝**：安裝 OpenJDK 17 以整合 Spark
+- **自訂依賴**：
+- 安裝 `requirements.txt` 中所列的套件
+- 為 Spark 和 PostgreSQL 新增特定的 Airflow 提供者套件（provider packages）
+- 包含用於 Spark 任務開發的 PySpark
+
+此 Image 適用於所有 Airflow 服務（webserver、scheduler、init），並提供一個一致的環境，包含資料工作流程編排所需的所有工具。
+
+### Spark Application Dockerfile
+
+`spark/app/stock_transform/Dockerfile` 用來建立一個專用的 Spark App Image：
+
+- **基礎 Image**：使用 `bitnami/spark:3.5.0` 提供 Spark 運作環境
+- **Python 設定**：安裝資料處理所需的 Python 套件
+- **Application**：將股票資料轉換程式複製到容器中
+- **環境配置**：設定 MinIO 的連線參數
+- **Entry Point**：透過 `spark-submit` 執行 Spark job
+
+此 Image 用於透過 Airflow 的 DockerOperator 執行 Spark job，為資料處理任務提供專用環境。
+
+## Docker Compose
+本專案使用 Docker Compose 編排多個容器，協同建置完整的資料工程環境。
+以下是 `docker-compose.yaml` 檔案中主要元件的說明。
+
+### 主要服務
+Docker Compose 配置包含以下服務：
+
+#### Airflow 元件
+- **airflow-webserver**：Airflow Web 介面，存取位址：http://localhost:8080
+- **airflow-scheduler**：負責調度和觸發工作流程執行
+- **airflow-init**：一次性初始化服務（僅運行一次以準備環境）
+- **postgres**：Airflow metadata 儲存資料庫
+
+#### 資料處理元件
+- **spark-master**：Spark Master Node，UI 位址：http://localhost:8082，job 提交 port：spark://spark-master:7077
+- **spark-worker**：執行任務的 Spark Worker Node，UI 位址：http://localhost:8081
+- **minio**：相容 S3 的物件存儲，UI 位址：http://localhost:9001，API 位址：http://localhost:9000
+- **metabase**：資料視覺化工具，存取位址：http://localhost:3000
+- **docker-proxy**：允許 Airflow 與 Docker daemon 進行通訊
