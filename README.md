@@ -285,7 +285,7 @@ This allows for faster development cycles by avoiding a full rebuild of the envi
 
 ## 前置條件
 - 系統中已安裝 Docker
-- 已安裝 Git（用於複製倉庫）
+- 已安裝 Git（用於複製儲存庫）
 - 對 Airflow 和 Spark 的基本概念有一定了解
 
 ## 專案結構
@@ -343,3 +343,152 @@ Docker Compose 配置包含以下服務：
 - **minio**：相容 S3 的物件存儲，UI 位址：http://localhost:9001，API 位址：http://localhost:9000
 - **metabase**：資料視覺化工具，存取位址：http://localhost:3000
 - **docker-proxy**：允許 Airflow 與 Docker daemon 進行通訊
+
+
+## 一次初始化服務
+`airflow-init` 服務是一項特殊的一次性服務，其功能包括：
+- 初始化 Airflow 資料庫
+- 建立預設管理員使用者
+- 設定目錄權限
+- 執行環境檢查（記憶體、CPU、磁碟空間）
+
+該服務設計為僅運行一次並成功退出。其他服務需等待其成功完成後方可啟動，具體啟動條件由 `condition: service_completed_successfully` 參數進行控制。
+
+### 網路與通信
+
+所有服務均透過 bridge network: `default_net` 連接，讓它們可以使用服務名稱作為主機名稱進行相互通訊。
+例如，可以透過 `spark-master:7077` 存取 Spark 服務。
+
+### Volume 映射
+
+主要的 Volume 映射包括：
+- `./dags:/opt/airflow/dags`：DAG 定義
+- `./logs:/opt/airflow/logs`：Airflow 日誌
+- `./plugins:/opt/airflow/plugins`：Airflow 插件
+- `./spark/app:/usr/local/spark/app`：Spark 應用程式
+- `./spark/resources:/usr/local/spark/resources`：Spark 資源
+- `./plugins/data/minio:/data`：MinIO 持久化存儲
+- `./test:/opt/airflow/test`：單元測試
+
+## 步驟 1. 設定說明
+請依照以下步驟設定項目：
+
+1. 將此儲存庫複製到本機
+2. 執行以下命令以初始化環境：
+```bash
+# 建立必要的目錄並設定權限
+mkdir -p ./dags ./logs ./plugins ./config
+echo -e "AIRFLOW_UID=$(id -u)" > .env
+
+# 從 DockerHub 拉取 Docker Image
+docker compose pull
+# 根據 Dockerfile 建置新 Image
+docker compose build --no-cache
+
+# 初始化 Airflow 資料庫和使用者（airflow-init 容器僅運行一次，指令完成後即停止）
+docker compose up airflow-init
+# 啟動所有服務（基於 Image 運行容器），因為其他服務需等待 airflow-init 成功完成後才能啟動
+docker compose up -d
+
+# 建立用於 Spark 處理的 stock-app Image
+docker build -t airflow/stock-app ./spark/app/stock_transform
+```
+
+運行這些命令後，您可以訪問：
+- Airflow webserver：http://localhost:8080 （預設憑證：airflow/airflow）
+- Spark Master UI：http://localhost:8181
+
+## 步驟 2. 在 Airflow Web UI 上設定連線
+啟動 Airflow Webserver，請導覽至 **Admin > Connections**（管理 > 連線）並建立新連線，具體參數如下：
+
+
+### API
+```bash
+Connection Id: stock_api
+Connection Type: HTTP
+Host: https://query1.finance.yahoo.com/
+Extra:
+{
+	"endpoint":"/v8/finance/chart/",
+	"headers": {
+		"Content-Type": "application/json",
+		"User-Agent": "Mozilla/5.0",
+		"Accept": "application/json"
+	}
+}
+```
+### MinIO
+```bash
+Connection Id: minio
+Connection: Amazon Web Services
+Access Key ID : minio
+Secret Access Key: minio123
+Extra:
+{
+  "endpoint_url": "http://minio:9000"
+}
+```
+### Postgres
+```bash
+Connection Id: postgres
+Connection: Postgres
+Host: postgres
+Login: airflow
+Password: airflow
+Port: 5432
+```
+
+## 步驟 3. 重建環境
+如果需要完全重建環境：
+
+```bash
+# 停止容器並移除 volumes 
+docker-compose down --volumes --remove-orphans
+# 移除未使用的 volumes
+docker volume prune -f
+# 清理未使用的 Docker 資源
+docker system prune -f
+```
+```bash
+# 從 DockerHub 拉取 Docker Image
+docker compose pull
+# 根據 Dockerfile 建置新 Image
+docker compose build --no-cache
+
+# 初始化 Airflow 資料庫和使用者
+docker compose up airflow-init
+# 啟動所有服務（基於 Image 運行容器）
+docker compose up
+
+# 建立用於 Spark 處理的 stock-app Image
+docker build -t airflow/stock-app ./spark/app/stock_transform
+```
+
+## 步驟 4. 測試 DAG 和任務
+測試 Airflow DAG 及各個任務：
+
+### DAG: stock_market
+```bash
+# 進入 Airflow webserver 容器
+docker exec -it stock-with-cicd-airflow-webserver-1 /bin/sh
+
+# 測試整個 DAG
+airflow dags test stock_market 2025-04-28
+
+# 測試單一任務
+airflow tasks test stock_market is_api_available 2025-04-28
+airflow tasks test stock_market get_stock_prices 2025-04-28
+airflow tasks test stock_market store_prices 2025-04-28
+airflow tasks test stock_market format_prices 2025-04-28
+airflow tasks test stock_market load_to_dw 2025-04-28
+```
+
+## 更新程式碼
+當修改程式碼（且不涉及 Docker 配置變更）時：
+
+```bash
+# 重新啟動特定服務，無需重新建構
+docker compose restart airflow-webserver airflow-scheduler
+```
+
+這樣可以避免完全重建環境，進而加快開發週期。
